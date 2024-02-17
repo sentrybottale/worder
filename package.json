@@ -1,0 +1,17 @@
+{
+    "name": "wordlist-api",
+    "version": "1.0.0",
+    "description": "API to process wordlists",
+    "main": "app.js",
+    "scripts": {
+      "start": "node app.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+      "express": "^4.17.1",
+      "fs-extra": "^10.0.0",
+      "multer": "^1.4.2"
+    }
+  }
+  
