@@ -79,28 +79,46 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
 
 function findValidSubsequences(word, wordSet) {
     const subsequences = new Set();
+    const containsA = word.includes('A');
+    const containsI = word.includes('I');
 
-    // Hardcode inclusion of 'A' and 'I' if they are part of the word
-    if (word.includes('A')) subsequences.add('A');
-    if (word.includes('I')) subsequences.add('I');
+    console.log(`Processing word: ${word}, Contains A: ${containsA}, Contains I: ${containsI}`);
 
     // Generate subsequences for combinations of characters
     for (let i = 1; i < (1 << word.length); i++) {
         let subsequence = '';
+
         for (let j = 0; j < word.length; j++) {
-            if (i & (1 << j)) { // If the j-th bit of i is set, include j-th character
+            if (i & (1 << j)) {
                 subsequence += word[j];
             }
         }
 
-        // Add the subsequence if it's a valid word in the set and not the same as the original word
-        if (subsequence.length > 1 && subsequence !== word && wordSet.has(subsequence)) {
-            subsequences.add(subsequence);
+        // Log each subsequence and its inclusion criteria
+        console.log(`Evaluating subsequence: ${subsequence}`);
+
+        if (subsequence !== word && wordSet.has(subsequence)) {
+            if ((!containsA || subsequence.includes('A')) && (!containsI || subsequence.includes('I'))) {
+                subsequences.add(subsequence);
+                console.log(`Added subsequence: ${subsequence}`);
+            } else {
+                console.log(`Skipped subsequence: ${subsequence} (Missing A/I)`);
+            }
         }
     }
 
+    // Directly add 'A' and 'I' if applicable
+    if (containsA && wordSet.has('A')) subsequences.add('A');
+    if (containsI && wordSet.has('I')) subsequences.add('I');
+
     return Array.from(subsequences);
 }
+
+
+
+
+
+
 
 
 function extractWords(html) {
