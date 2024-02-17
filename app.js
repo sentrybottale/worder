@@ -35,9 +35,9 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
     }
 });
 
-// Updated endpoint to accept a file and a URL
+// Endpoint for crawling words from a given URL and comparing against a provided wordlist
 app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
-    const url = req.body.url; // URL from form field
+    const url = req.body.url;
 
     if (!req.file) {
         return res.status(400).json({ error: 'No wordlist file uploaded.' });
@@ -50,21 +50,23 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
         // Process the uploaded wordlist
         const wordListPath = req.file.path;
         const wordListContent = await fs.readFile(wordListPath, 'utf-8');
-        const wordList = wordListContent.split(/\r?\n/);
-        const wordSet = new Set(wordList.map(word => word.toUpperCase())); // Ensure wordSet is uppercase
+        const wordList = wordListContent.split(/\r?\n/).map(word => word.toUpperCase());
+        const wordSet = new Set(wordList);
 
         // Crawl the website and extract words
         const response = await axios.get(url);
         const html = response.data;
-        const crawledWords = extractWords(html).map(word => word.toUpperCase()); // Convert crawled words to uppercase
+        const crawledWords = extractWords(html);
 
-        // Compare crawled words against the wordlist
+        // Compare crawled words against the provided wordlist
         const validWords = {};
 
         crawledWords.forEach(word => {
-            const subsequences = findValidSubsequences(word, wordSet);
-            if (subsequences.length > 0) {
-                validWords[word] = subsequences;
+            if (wordSet.has(word)) { // Check if the crawled word is in the provided wordlist
+                const subsequences = findValidSubsequences(word, wordSet);
+                if (subsequences.length > 0) {
+                    validWords[word] = subsequences;
+                }
             }
         });
 
@@ -96,8 +98,13 @@ function findValidSubsequences(word, wordSet) {
 function extractWords(html) {
     const $ = cheerio.load(html);
     const text = $('body').text();
-    const words = text.match(/\b(\w+)\b/g);
-    return [...new Set(words)];
+    const words = text
+        .replace(/[\s\r\n]+/g, ' ') // Replace multiple whitespace characters with a single space
+        .split(' ') // Split by space to get words
+        .map(word => word.toUpperCase()) // Convert words to uppercase
+        .filter(word => word.length > 1 && /^[A-Z]+$/i.test(word)); // Filter out single characters and non-alphabetic strings
+
+    return [...new Set(words)]; // Return unique words
 }
 
 const port = process.env.PORT || 3000;
