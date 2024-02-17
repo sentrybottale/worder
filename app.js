@@ -62,13 +62,13 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
         const validWords = {};
 
         crawledWords.forEach(word => {
-            if (wordSet.has(word)) { // Check if the crawled word is in the provided wordlist
-                const subsequences = findValidSubsequences(word, wordSet);
-                if (subsequences.length > 0) {
-                    validWords[word] = subsequences;
-                }
+            const subsequences = findValidSubsequences(word, wordSet);
+            // Only add words and their subsequences to the validWords object if they meet all criteria
+            if (subsequences.length > 0 && (word.includes('A') || word.includes('I'))) {
+                validWords[word] = subsequences;
             }
         });
+        
 
         await fs.remove(wordListPath); // Clean up the uploaded wordlist file
         res.json({ validWords });
