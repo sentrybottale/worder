@@ -22,15 +22,16 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
         wordList.forEach(word => {
             if (word.length === wordLength) {
                 const subsequences = findValidSubsequences(word, wordSet);
-                if (subsequences.length > 0) {
-                    validWords[word] = subsequences;
+                if (Object.keys(subsequences).length > 0) { // Check if any subsequences were found
+                    validWords[word] = subsequences; // Store the found subsequences for this word
                 }
             }
         });
 
         await fs.remove(filePath);
-        res.json({ validWords });
+        res.json({ validWords }); // Make sure validWords is returned here
     } catch (error) {
+        console.error(error); // Log the error for debugging
         res.status(500).json({ error: error.message });
     }
 });
@@ -81,35 +82,46 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
 
 
 function findValidSubsequences(word, wordSet) {
-    const subsequences = new Set();
-    const containsA = word.includes('A');
-    const containsI = word.includes('I');
+    const validSubsequences = {};
+    const minLength = word.includes('A') || word.includes('I') ? 1 : 2;
 
-    // Generate subsequences for combinations of characters
-    for (let i = 1; i < (1 << word.length); i++) {
-        let subsequence = '';
+    console.log(`Processing word: ${word}`);
 
-        for (let j = 0; j < word.length; j++) {
-            if (i & (1 << j)) {
-                subsequence += word[j];
+    // Iterate over the desired lengths
+    for (let length = word.length - 1; length >= minLength; length--) {
+        let found = false;
+
+        // Generate subsequences of the current length
+        for (let i = 0; i < (1 << word.length); i++) {
+            if (found) break; // Stop if we've already found a subsequence of this length
+            let subsequence = '';
+
+            for (let j = 0; j < word.length; j++) {
+                if (i & (1 << j)) {
+                    subsequence += word[j];
+                }
             }
-        }
 
-        // Add the subsequence if it's different from the original word, is in the wordSet,
-        // and if the original word contains 'A' or 'I', the subsequence must also contain them
-        if (subsequence !== word && wordSet.has(subsequence) &&
-            (!containsA || subsequence.includes('A')) && 
-            (!containsI || subsequence.includes('I'))) {
-            subsequences.add(subsequence);
+            if (subsequence.length === length && wordSet.has(subsequence)) {
+                console.log(`Found valid subsequence of length ${length}: ${subsequence}`);
+                validSubsequences[length] = subsequence; // Store the first valid subsequence of this length
+                found = true; // Mark as found to stop further searches for this length
+            }
         }
     }
 
-    // Directly add 'A' and 'I' if applicable and present in the wordSet
-    if (containsA && wordSet.has('A')) subsequences.add('A');
-    if (containsI && wordSet.has('I')) subsequences.add('I');
+    // Check and add 'A' or 'I' if applicable
+    if (word.includes('A') && wordSet.has('A')) {
+        validSubsequences[1] = 'A';
+        console.log("Added 'A' as a valid subsequence");
+    } else if (word.includes('I') && wordSet.has('I')) {
+        validSubsequences[1] = 'I';
+        console.log("Added 'I' as a valid subsequence");
+    }
 
-    return Array.from(subsequences);
+    return validSubsequences;
 }
+
 
 
 
