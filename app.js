@@ -80,20 +80,28 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
 function findValidSubsequences(word, wordSet) {
     const subsequences = new Set();
 
+    // Hardcode inclusion of 'A' and 'I' if they are part of the word
+    if (word.includes('A')) subsequences.add('A');
+    if (word.includes('I')) subsequences.add('I');
+
+    // Generate subsequences for combinations of characters
     for (let i = 1; i < (1 << word.length); i++) {
         let subsequence = '';
         for (let j = 0; j < word.length; j++) {
-            if (i & (1 << j)) {
+            if (i & (1 << j)) { // If the j-th bit of i is set, include j-th character
                 subsequence += word[j];
             }
         }
-        if (subsequence !== word && wordSet.has(subsequence)) {
+
+        // Add the subsequence if it's a valid word in the set and not the same as the original word
+        if (subsequence.length > 1 && subsequence !== word && wordSet.has(subsequence)) {
             subsequences.add(subsequence);
         }
     }
 
     return Array.from(subsequences);
 }
+
 
 function extractWords(html) {
     const $ = cheerio.load(html);
