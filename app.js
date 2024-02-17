@@ -10,22 +10,20 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
     }
 
     const wordLength = parseInt(req.query.wordLength, 10);
+    const startsWith = req.query.startsWith || ''; // Parameter to filter target words
 
     try {
         const filePath = req.file.path;
         const fileContent = await fs.readFile(filePath, 'utf-8');
-        // Filter words to include only those of the desired length and shorter
-        const wordList = fileContent.split(/\r?\n/).filter(word => word.length <= wordLength);
-        const wordSet = new Set(wordList); // Use a Set for efficient lookup
+        const allWords = fileContent.split(/\r?\n/).filter(word => word.length <= wordLength);
+        const wordSet = new Set(allWords); // Contains all words up to the specified length
+        const targetWords = allWords.filter(word => word.length === wordLength && word.startsWith(startsWith)); // Target words filtered by length and startsWith
         const validWords = {};
 
-        wordList.forEach(word => {
-            if (word.length === wordLength) {
-                // For each word of the desired length, find its valid subsequences
-                const subsequences = findValidSubsequences(word, wordSet);
-                if (subsequences.length > 0) {
-                    validWords[word] = subsequences;
-                }
+        targetWords.forEach(word => {
+            const subsequences = findValidSubsequences(word, wordSet);
+            if (subsequences.length > 0) {
+                validWords[word] = subsequences;
             }
         });
 
@@ -39,30 +37,23 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
 
 function findValidSubsequences(word, wordSet) {
     const subsequences = [];
-
-    // Check each word in the set to see if it's a subsequence of the original word
     wordSet.forEach(subWord => {
         if (subWord.length < word.length && isSubsequence(subWord, word)) {
             subsequences.push(subWord);
         }
     });
-
     return subsequences;
 }
 
-
-// Helper function to check if the first word is a subsequence of the second
 function isSubsequence(subWord, word) {
-    if (subWord.length === 1) {
-        return word.includes(subWord);
-    }
-
     let i = 0, j = 0;
     while (i < subWord.length && j < word.length) {
         if (subWord[i] === word[j]) {
             i++;
+            j++;
+        } else {
+            j++;
         }
-        j++;
     }
     return i === subWord.length;
 }
