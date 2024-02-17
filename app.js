@@ -38,30 +38,32 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
 function findValidSubsequences(word, wordSet) {
     const subsequences = new Set();
 
-    // Check for single-letter subsequences
-    for (let i = 0; i < word.length; i++) {
-        if (wordSet.has(word[i])) {
-            subsequences.add(word[i]);
+    // Explicitly add single-character subsequences if they are valid words
+    for (let char of word) {
+        if (wordSet.has(char)) {
+            subsequences.add(char);
         }
     }
 
-    // Generate all other subsequences
+    // Generate subsequences for combinations of characters
     for (let i = 1; i < (1 << word.length); i++) {
         let subsequence = '';
 
         for (let j = 0; j < word.length; j++) {
-            if (i & (1 << j)) {
+            if (i & (1 << j)) { // If the j-th bit of i is set, include j-th character
                 subsequence += word[j];
             }
         }
 
-        if (subsequence.length > 1 && wordSet.has(subsequence) && subsequence !== word) {
+        // Add the subsequence if it's a valid word and not the same as the original word
+        if (subsequence !== word && wordSet.has(subsequence)) {
             subsequences.add(subsequence);
         }
     }
 
     return Array.from(subsequences);
 }
+
 
 
 function isSubsequence(subWord, word) {
