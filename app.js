@@ -62,13 +62,13 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
         const validWords = {};
 
         crawledWords.forEach(word => {
-            const subsequences = findValidSubsequences(word, wordSet);
-            // Only add words and their subsequences to the validWords object if they meet all criteria
-            if (subsequences.length > 0 && (word.includes('A') || word.includes('I'))) {
-                validWords[word] = subsequences;
+            if (wordSet.has(word)) { // Check if the crawled word is in the provided wordlist
+                const subsequences = findValidSubsequences(word, wordSet);
+                if (subsequences.length > 0) {
+                    validWords[word] = subsequences;
+                }
             }
         });
-        
 
         await fs.remove(wordListPath); // Clean up the uploaded wordlist file
         res.json({ validWords });
@@ -82,8 +82,6 @@ function findValidSubsequences(word, wordSet) {
     const containsA = word.includes('A');
     const containsI = word.includes('I');
 
-    console.log(`Processing word: ${word}, Contains A: ${containsA}, Contains I: ${containsI}`);
-
     // Generate subsequences for combinations of characters
     for (let i = 1; i < (1 << word.length); i++) {
         let subsequence = '';
@@ -94,30 +92,21 @@ function findValidSubsequences(word, wordSet) {
             }
         }
 
-        // Log each subsequence and its inclusion criteria
-        console.log(`Evaluating subsequence: ${subsequence}`);
-
-        if (subsequence !== word && wordSet.has(subsequence)) {
-            if ((!containsA || subsequence.includes('A')) && (!containsI || subsequence.includes('I'))) {
-                subsequences.add(subsequence);
-                console.log(`Added subsequence: ${subsequence}`);
-            } else {
-                console.log(`Skipped subsequence: ${subsequence} (Missing A/I)`);
-            }
+        // Add the subsequence if it's different from the original word, is in the wordSet,
+        // and if the original word contains 'A' or 'I', the subsequence must also contain them
+        if (subsequence !== word && wordSet.has(subsequence) &&
+            (!containsA || subsequence.includes('A')) && 
+            (!containsI || subsequence.includes('I'))) {
+            subsequences.add(subsequence);
         }
     }
 
-    // Directly add 'A' and 'I' if applicable
+    // Directly add 'A' and 'I' if applicable and present in the wordSet
     if (containsA && wordSet.has('A')) subsequences.add('A');
     if (containsI && wordSet.has('I')) subsequences.add('I');
 
     return Array.from(subsequences);
 }
-
-
-
-
-
 
 
 
