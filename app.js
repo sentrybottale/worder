@@ -38,6 +38,7 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
 // Endpoint for crawling words from a given URL and comparing against a provided wordlist
 app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     const url = req.body.url;
+    const wordLength = parseInt(req.body.wordLength, 10); // Retrieve wordLength from request body
 
     if (!req.file) {
         return res.status(400).json({ error: 'No wordlist file uploaded.' });
@@ -45,24 +46,25 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     if (!url) {
         return res.status(400).json({ error: 'No URL provided.' });
     }
+    if (isNaN(wordLength) || wordLength <= 0) {
+        return res.status(400).json({ error: 'Invalid or missing wordLength parameter.' });
+    }
 
     try {
         // Process the uploaded wordlist
         const wordListPath = req.file.path;
         const wordListContent = await fs.readFile(wordListPath, 'utf-8');
-        const wordList = wordListContent.split(/\r?\n/).map(word => word.toUpperCase());
-        const wordSet = new Set(wordList);
+        const wordSet = new Set(wordListContent.split(/\r?\n/).map(word => word.toUpperCase()));
 
         // Crawl the website and extract words
         const response = await axios.get(url);
         const html = response.data;
-        const crawledWords = extractWords(html);
+        const crawledWords = extractWords(html).filter(word => word.length === wordLength);
 
         // Compare crawled words against the provided wordlist
         const validWords = {};
-
         crawledWords.forEach(word => {
-            if (wordSet.has(word)) { // Check if the crawled word is in the provided wordlist
+            if (wordSet.has(word)) {
                 const subsequences = findValidSubsequences(word, wordSet);
                 if (subsequences.length > 0) {
                     validWords[word] = subsequences;
@@ -76,6 +78,7 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 function findValidSubsequences(word, wordSet) {
     const subsequences = new Set();
