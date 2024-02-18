@@ -30,9 +30,8 @@ Parameters:
 wordlist: A .txt file containing the wordlist (for file upload).
 url (form-data field): The target URL to crawl for words.
 wordLength (form-data field): Specifies the desired length for subsequence analysis.
-Testing with Postman
 
-To test the endpoints using Postman, set the method to POST and use the respective URLs:
+Testing with Postman. To test the endpoints using Postman, set the method to POST and use the respective URLs:
 
 For the /api/upload endpoint, use http://localhost:3000/api/upload?wordLength=<desired_length>. You can either attach a wordlist file or provide a wordlist URL in the request body as JSON (e.g., {"url": "http://example.com/wordlist.txt"}).
 For the /api/crawl endpoint, use http://localhost:3000/api/crawl. Include the url and wordLength as form-data fields along with the wordlist file upload, if using file upload.
