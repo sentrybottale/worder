@@ -22,16 +22,15 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
         wordList.forEach(word => {
             if (word.length === wordLength) {
                 const subsequences = findValidSubsequences(word, wordSet);
-                if (Object.keys(subsequences).length > 0) { // Check if any subsequences were found
-                    validWords[word] = subsequences; // Store the found subsequences for this word
+                if (subsequences.length > 0) {
+                    validWords[word] = subsequences;
                 }
             }
         });
 
         await fs.remove(filePath);
-        res.json({ validWords }); // Make sure validWords is returned here
+        res.json({ validWords });
     } catch (error) {
-        console.error(error); // Log the error for debugging
         res.status(500).json({ error: error.message });
     }
 });
@@ -39,7 +38,6 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
 // Endpoint for crawling words from a given URL and comparing against a provided wordlist
 app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     const url = req.body.url;
-    const wordLength = parseInt(req.body.wordLength, 10); // Retrieve wordLength from request body
 
     if (!req.file) {
         return res.status(400).json({ error: 'No wordlist file uploaded.' });
@@ -47,31 +45,30 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     if (!url) {
         return res.status(400).json({ error: 'No URL provided.' });
     }
-    if (isNaN(wordLength) || wordLength <= 0) {
-        return res.status(400).json({ error: 'Invalid or missing wordLength parameter.' });
-    }
 
     try {
         // Process the uploaded wordlist
         const wordListPath = req.file.path;
         const wordListContent = await fs.readFile(wordListPath, 'utf-8');
-        const wordSet = new Set(wordListContent.split(/\r?\n/).map(word => word.toUpperCase()));
+        const wordList = wordListContent.split(/\r?\n/).map(word => word.toUpperCase());
+        const wordSet = new Set(wordList);
 
         // Crawl the website and extract words
         const response = await axios.get(url);
         const html = response.data;
-        const crawledWords = extractWords(html).filter(word => word.length === wordLength);
+        const crawledWords = extractWords(html);
 
         // Compare crawled words against the provided wordlist
         const validWords = {};
+
         crawledWords.forEach(word => {
-            if (wordSet.has(word)) {
-                const subsequences = findValidSubsequences(word, wordSet);
-                if (subsequences.length > 0) {
-                    validWords[word] = subsequences;
-                }
+            const subsequences = findValidSubsequences(word, wordSet);
+            // Only add words and their subsequences to the validWords object if they meet all criteria
+            if (subsequences.length > 0 && (word.includes('A') || word.includes('I'))) {
+                validWords[word] = subsequences;
             }
         });
+        
 
         await fs.remove(wordListPath); // Clean up the uploaded wordlist file
         res.json({ validWords });
@@ -80,47 +77,46 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     }
 });
 
-
 function findValidSubsequences(word, wordSet) {
-    const validSubsequences = {};
-    const minLength = word.includes('A') || word.includes('I') ? 1 : 2;
+    const subsequences = new Set();
+    const containsA = word.includes('A');
+    const containsI = word.includes('I');
 
-    console.log(`Processing word: ${word}`);
+    console.log(`Processing word: ${word}, Contains A: ${containsA}, Contains I: ${containsI}`);
 
-    // Iterate over the desired lengths
-    for (let length = word.length - 1; length >= minLength; length--) {
-        let found = false;
+    // Generate subsequences for combinations of characters
+    for (let i = 1; i < (1 << word.length); i++) {
+        let subsequence = '';
 
-        // Generate subsequences of the current length
-        for (let i = 0; i < (1 << word.length); i++) {
-            if (found) break; // Stop if we've already found a subsequence of this length
-            let subsequence = '';
-
-            for (let j = 0; j < word.length; j++) {
-                if (i & (1 << j)) {
-                    subsequence += word[j];
-                }
+        for (let j = 0; j < word.length; j++) {
+            if (i & (1 << j)) {
+                subsequence += word[j];
             }
+        }
 
-            if (subsequence.length === length && wordSet.has(subsequence)) {
-                console.log(`Found valid subsequence of length ${length}: ${subsequence}`);
-                validSubsequences[length] = subsequence; // Store the first valid subsequence of this length
-                found = true; // Mark as found to stop further searches for this length
+        // Log each subsequence and its inclusion criteria
+        console.log(`Evaluating subsequence: ${subsequence}`);
+
+        if (subsequence !== word && wordSet.has(subsequence)) {
+            if ((!containsA || subsequence.includes('A')) && (!containsI || subsequence.includes('I'))) {
+                subsequences.add(subsequence);
+                console.log(`Added subsequence: ${subsequence}`);
+            } else {
+                console.log(`Skipped subsequence: ${subsequence} (Missing A/I)`);
             }
         }
     }
 
-    // Check and add 'A' or 'I' if applicable
-    if (word.includes('A') && wordSet.has('A')) {
-        validSubsequences[1] = 'A';
-        console.log("Added 'A' as a valid subsequence");
-    } else if (word.includes('I') && wordSet.has('I')) {
-        validSubsequences[1] = 'I';
-        console.log("Added 'I' as a valid subsequence");
-    }
+    // Directly add 'A' and 'I' if applicable
+    if (containsA && wordSet.has('A')) subsequences.add('A');
+    if (containsI && wordSet.has('I')) subsequences.add('I');
 
-    return validSubsequences;
+    return Array.from(subsequences);
 }
+
+
+
+
 
 
 
