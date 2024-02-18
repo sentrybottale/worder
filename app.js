@@ -12,31 +12,40 @@ app.use(express.json());
 function findValidSequence(word, wordSet, path = []) {
     console.log(`Processing: ${word}, Current Path: ${path.join(' -> ')}`);
 
-    // Base case: if the current word is 'A' or 'I', return the path including this word
+    // Directly return the path if 'A' or 'I' is reached
     if (word === 'A' || word === 'I') {
-        console.log(`Base case reached with ${word}`);
+        console.log(`Path completed with ${word}: ${[...path, word].join(' -> ')}`);
         return [...path, word];
     }
 
-    // Iterate through all characters of the current word to generate subsequences
+    // Special handling for two-letter words containing 'A' or 'I'
+    if (word.length === 2 && (word.includes('A') || word.includes('I'))) {
+        const finalLetter = word.includes('A') ? 'A' : 'I';
+        console.log(`Path completed with ${finalLetter} from ${word}: ${[...path, word, finalLetter].join(' -> ')}`);
+        return [...path, word, finalLetter];
+    }
+
+    // Iterate through all characters of the current word
     for (let i = 0; i < word.length; i++) {
         let subsequence = word.slice(0, i) + word.slice(i + 1);
 
         // Check if the subsequence is a valid word and not already in the path
         if (wordSet.has(subsequence) && !path.includes(subsequence)) {
-            console.log(`Valid subsequence found: ${subsequence} from ${word}`);
-            let result = findValidSequence(subsequence, wordSet, [...path, word]); // Recurse with the subsequence
+            console.log(`Valid subsequence found from ${word}: ${subsequence}`);
+
+            // Enqueue the new subsequence with its path
+            let result = findValidSequence(subsequence, wordSet, [...path, word]);
             if (result.length) {
-                console.log(`Valid path found for ${word}: ${result.join(' -> ')}`);
-                return result; // Return the valid path if found
+                return result; // Return the path if a valid sequence is found
             }
         }
     }
 
-    // If no valid path is found from this word, log and return an empty array
-    console.log(`No valid path found from ${word}`);
+    // Log and return an empty array if no path to 'A' or 'I' is found
+    console.log(`No valid path to 'A' or 'I' found from ${word}`);
     return [];
 }
+
 
 // Endpoint for uploading a wordlist and finding subsequences
 app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
