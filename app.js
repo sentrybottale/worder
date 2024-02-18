@@ -9,45 +9,38 @@ const app = express();
 app.use(express.json());
 
 function findValidSequence(word, wordSet) {
-    let sequences = [word];
-    let currentWords = [word];
+    let queue = [{ word: word, path: [] }];
 
-    while (currentWords.length > 0) {
-        let newCurrentWords = [];
+    while (queue.length > 0) {
+        let { word: currentWord, path: currentPath } = queue.shift();
 
-        for (let currentWord of currentWords) {
-            let foundSubsequence = false;
-
-            for (let i = 0; i < currentWord.length; i++) {
-                let subsequence = currentWord.slice(0, i) + currentWord.slice(i + 1);
-
-                if (wordSet.has(subsequence)) {
-                    console.log(`Valid subsequence found for ${currentWord}: ${subsequence}`);
-                    if (!sequences.includes(subsequence)) {
-                        sequences.push(subsequence);
-                        newCurrentWords.push(subsequence);
-                        foundSubsequence = true;
-                    }
-                }
-            }
-
-            if (!foundSubsequence && currentWord.length === 1 && (currentWord === 'A' || currentWord === 'I')) {
-                console.log(`Final valid single letter found: ${currentWord}`);
-                return sequences;
-            }
+        // Directly return the path if 'A' or 'I' is reached
+        if (currentWord === 'A' || currentWord === 'I') {
+            console.log(`Path completed with ${currentWord}: ${[...currentPath, currentWord].join(' -> ')}`);
+            return [...currentPath, currentWord];
         }
 
-        if (!newCurrentWords.length) {
-            console.log(`No further valid subsequences found.`);
-            return [];
-        }
+        // Iterate through all characters of the current word
+        for (let i = 0; i < currentWord.length; i++) {
+            let subsequence = currentWord.slice(0, i) + currentWord.slice(i + 1);
 
-        currentWords = newCurrentWords;
+            // Check if the subsequence is a valid word and not already in the path
+            if (wordSet.has(subsequence) && !currentPath.includes(subsequence)) {
+                console.log(`Valid subsequence found from ${currentWord}: ${subsequence}`);
+
+                // Enqueue the new subsequence with its path
+                queue.push({ word: subsequence, path: [...currentPath, currentWord] });
+            }
+        }
     }
 
-    console.log(`No path to 'A' or 'I' found.`);
+    // Log and return an empty array if no path to 'A' or 'I' is found
+    console.log(`No valid path to 'A' or 'I' found from ${word}`);
     return [];
 }
+
+
+
 
 
 app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
