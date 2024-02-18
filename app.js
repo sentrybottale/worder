@@ -6,36 +6,74 @@ const cheerio = require('cheerio');
 const upload = multer({ dest: 'uploads/' });
 const app = express();
 
-app.use(express.json()); // Middleware to parse JSON bodies
+app.use(express.json());
 
-// Endpoint for uploading a wordlist and finding subsequences
+function findValidSequence(word, wordSet) {
+    let sequences = [word];
+    let currentWords = [word];
+
+    while (currentWords.length > 0) {
+        let newCurrentWords = [];
+
+        for (let currentWord of currentWords) {
+            let foundSubsequence = false;
+
+            for (let i = 0; i < currentWord.length; i++) {
+                let subsequence = currentWord.slice(0, i) + currentWord.slice(i + 1);
+
+                if (wordSet.has(subsequence)) {
+                    console.log(`Valid subsequence found for ${currentWord}: ${subsequence}`);
+                    if (!sequences.includes(subsequence)) {
+                        sequences.push(subsequence);
+                        newCurrentWords.push(subsequence);
+                        foundSubsequence = true;
+                    }
+                }
+            }
+
+            if (!foundSubsequence && currentWord.length === 1 && (currentWord === 'A' || currentWord === 'I')) {
+                console.log(`Final valid single letter found: ${currentWord}`);
+                return sequences;
+            }
+        }
+
+        if (!newCurrentWords.length) {
+            console.log(`No further valid subsequences found.`);
+            return [];
+        }
+
+        currentWords = newCurrentWords;
+    }
+
+    console.log(`No path to 'A' or 'I' found.`);
+    return [];
+}
+
+
 app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
-    const wordLength = parseInt(req.query.wordLength, 10);
-
     try {
         const filePath = req.file.path;
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const wordList = fileContent.split(/\r?\n/);
         const wordSet = new Set(wordList);
-        const validWords = {};
+        const validSequences = {};
 
         wordList.forEach(word => {
-            if (word.length === wordLength) {
-                const subsequences = findValidSubsequences(word, wordSet);
-                if (subsequences.length > 0) {
-                    validWords[word] = subsequences;
-                }
+            console.log(`Checking word from upload: ${word}`);
+            let sequence = findValidSequence(word, wordSet);
+            if (sequence.length > 0) {
+                validSequences[word] = sequence;
             }
         });
 
         await fs.remove(filePath);
-        res.json({ validWords });
+        res.json({ validSequences });
     } catch (error) {
+        console.error(`Error processing /api/upload: ${error.message}`);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Endpoint for crawling words from a given URL and comparing against a provided wordlist
 app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     const url = req.body.url;
 
@@ -47,90 +85,37 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     }
 
     try {
-        // Process the uploaded wordlist
         const wordListPath = req.file.path;
         const wordListContent = await fs.readFile(wordListPath, 'utf-8');
         const wordList = wordListContent.split(/\r?\n/).map(word => word.toUpperCase());
         const wordSet = new Set(wordList);
 
-        // Crawl the website and extract words
         const response = await axios.get(url);
         const html = response.data;
         const crawledWords = extractWords(html);
-
-        // Compare crawled words against the provided wordlist
-        const validWords = {};
+        const validSequences = {};
 
         crawledWords.forEach(word => {
-            const subsequences = findValidSubsequences(word, wordSet);
-            // Only add words and their subsequences to the validWords object if they meet all criteria
-            if (subsequences.length > 0 && (word.includes('A') || word.includes('I'))) {
-                validWords[word] = subsequences;
+            console.log(`Checking crawled word: ${word}`);
+            let sequence = findValidSequence(word, wordSet);
+            if (sequence.length > 0) {
+                validSequences[word] = sequence;
             }
         });
-        
 
-        await fs.remove(wordListPath); // Clean up the uploaded wordlist file
-        res.json({ validWords });
+        await fs.remove(wordListPath);
+        res.json({ validSequences });
     } catch (error) {
+        console.error(`Error processing /api/crawl: ${error.message}`);
         res.status(500).json({ error: error.message });
     }
 });
 
-function findValidSubsequences(word, wordSet) {
-    const subsequences = new Set();
-    const containsA = word.includes('A');
-    const containsI = word.includes('I');
-
-    console.log(`Processing word: ${word}, Contains A: ${containsA}, Contains I: ${containsI}`);
-
-    // Generate subsequences for combinations of characters
-    for (let i = 1; i < (1 << word.length); i++) {
-        let subsequence = '';
-
-        for (let j = 0; j < word.length; j++) {
-            if (i & (1 << j)) {
-                subsequence += word[j];
-            }
-        }
-
-        // Log each subsequence and its inclusion criteria
-        console.log(`Evaluating subsequence: ${subsequence}`);
-
-        if (subsequence !== word && wordSet.has(subsequence)) {
-            if ((!containsA || subsequence.includes('A')) && (!containsI || subsequence.includes('I'))) {
-                subsequences.add(subsequence);
-                console.log(`Added subsequence: ${subsequence}`);
-            } else {
-                console.log(`Skipped subsequence: ${subsequence} (Missing A/I)`);
-            }
-        }
-    }
-
-    // Directly add 'A' and 'I' if applicable
-    if (containsA && wordSet.has('A')) subsequences.add('A');
-    if (containsI && wordSet.has('I')) subsequences.add('I');
-
-    return Array.from(subsequences);
-}
-
-
-
-
-
-
-
-
 function extractWords(html) {
     const $ = cheerio.load(html);
     const text = $('body').text();
-    const words = text
-        .replace(/[\s\r\n]+/g, ' ') // Replace multiple whitespace characters with a single space
-        .split(' ') // Split by space to get words
-        .map(word => word.toUpperCase()) // Convert words to uppercase
-        .filter(word => word.length > 1 && /^[A-Z]+$/i.test(word)); // Filter out single characters and non-alphabetic strings
-
-    return [...new Set(words)]; // Return unique words
+    const words = text.replace(/[\s\r\n]+/g, ' ').split(' ').map(word => word.toUpperCase()).filter(word => word.length > 1 && /^[A-Z]+$/i.test(word));
+    return [...new Set(words)];
 }
 
 const port = process.env.PORT || 3000;
