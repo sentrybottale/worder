@@ -49,28 +49,51 @@ function findValidSequence(word, wordSet, path = []) {
 
 // Endpoint for uploading a wordlist and finding subsequences
 app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
-    try {
-        const filePath = req.file.path;
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        const wordList = fileContent.split(/\r?\n/);
-        const wordSet = new Set(wordList);
-        const validSequences = {};
+    let wordList = [];
+    const wordLength = parseInt(req.query.wordLength, 10); // Parse the wordLength parameter from the query string
 
-        wordList.forEach(word => {
-            console.log(`Checking word from upload: ${word}`);
+    if (req.file) {
+        // File was uploaded
+        try {
+            const filePath = req.file.path;
+            const fileContent = await fs.readFile(filePath, 'utf-8');
+            wordList = fileContent.split(/\r?\n/);
+            await fs.remove(filePath); // Clean up the uploaded file
+        } catch (error) {
+            console.error(`Error processing uploaded file: ${error.message}`);
+            return res.status(500).json({ error: error.message });
+        }
+    } else if (req.body.url) {
+        // URL is provided in the request body
+        try {
+            const response = await axios.get(req.body.url);
+            wordList = response.data.split(/\r?\n/);
+        } catch (error) {
+            console.error(`Error fetching file from URL: ${error.message}`);
+            return res.status(500).json({ error: `Failed to fetch file from URL: ${error.message}` });
+        }
+    } else {
+        // Neither file nor URL is provided
+        return res.status(400).json({ error: 'No wordlist file uploaded or URL provided.' });
+    }
+
+    // Process the word list
+    const wordSet = new Set(wordList);
+    const validSequences = {};
+
+    wordList.forEach(word => {
+        if (word.length === wordLength) { // Only process words of the specified length
+            console.log(`Checking word: ${word}`);
             let sequence = findValidSequence(word, wordSet);
             if (sequence.length > 0) {
                 validSequences[word] = sequence;
             }
-        });
+        }
+    });
 
-        await fs.remove(filePath);
-        res.json({ validSequences });
-    } catch (error) {
-        console.error(`Error processing /api/upload: ${error.message}`);
-        res.status(500).json({ error: error.message });
-    }
+    res.json({ validSequences });
 });
+
 
 // Endpoint for crawling words from a given URL and comparing against a provided wordlist
 app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
