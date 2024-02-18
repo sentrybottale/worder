@@ -8,41 +8,37 @@ const app = express();
 
 app.use(express.json());
 
-function findValidSequence(word, wordSet) {
-    let queue = [{ word: word, path: [] }];
+// Recursive function to find valid sequence of words leading to 'A' or 'I'
+function findValidSequence(word, wordSet, path = []) {
+    console.log(`Processing: ${word}, Current Path: ${path.join(' -> ')}`);
 
-    while (queue.length > 0) {
-        let { word: currentWord, path: currentPath } = queue.shift();
+    // Base case: if the current word is 'A' or 'I', return the path including this word
+    if (word === 'A' || word === 'I') {
+        console.log(`Base case reached with ${word}`);
+        return [...path, word];
+    }
 
-        // Directly return the path if 'A' or 'I' is reached
-        if (currentWord === 'A' || currentWord === 'I') {
-            console.log(`Path completed with ${currentWord}: ${[...currentPath, currentWord].join(' -> ')}`);
-            return [...currentPath, currentWord];
-        }
+    // Iterate through all characters of the current word to generate subsequences
+    for (let i = 0; i < word.length; i++) {
+        let subsequence = word.slice(0, i) + word.slice(i + 1);
 
-        // Iterate through all characters of the current word
-        for (let i = 0; i < currentWord.length; i++) {
-            let subsequence = currentWord.slice(0, i) + currentWord.slice(i + 1);
-
-            // Check if the subsequence is a valid word and not already in the path
-            if (wordSet.has(subsequence) && !currentPath.includes(subsequence)) {
-                console.log(`Valid subsequence found from ${currentWord}: ${subsequence}`);
-
-                // Enqueue the new subsequence with its path
-                queue.push({ word: subsequence, path: [...currentPath, currentWord] });
+        // Check if the subsequence is a valid word and not already in the path
+        if (wordSet.has(subsequence) && !path.includes(subsequence)) {
+            console.log(`Valid subsequence found: ${subsequence} from ${word}`);
+            let result = findValidSequence(subsequence, wordSet, [...path, word]); // Recurse with the subsequence
+            if (result.length) {
+                console.log(`Valid path found for ${word}: ${result.join(' -> ')}`);
+                return result; // Return the valid path if found
             }
         }
     }
 
-    // Log and return an empty array if no path to 'A' or 'I' is found
-    console.log(`No valid path to 'A' or 'I' found from ${word}`);
+    // If no valid path is found from this word, log and return an empty array
+    console.log(`No valid path found from ${word}`);
     return [];
 }
 
-
-
-
-
+// Endpoint for uploading a wordlist and finding subsequences
 app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
     try {
         const filePath = req.file.path;
@@ -67,6 +63,7 @@ app.post('/api/upload', upload.single('wordlist'), async (req, res) => {
     }
 });
 
+// Endpoint for crawling words from a given URL and comparing against a provided wordlist
 app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     const url = req.body.url;
 
@@ -104,6 +101,7 @@ app.post('/api/crawl', upload.single('wordlist'), async (req, res) => {
     }
 });
 
+// Function to extract words from HTML content
 function extractWords(html) {
     const $ = cheerio.load(html);
     const text = $('body').text();
