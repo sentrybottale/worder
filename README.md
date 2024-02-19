@@ -2,7 +2,8 @@ Dockerized Node.js Wordlist Analysis Service
 
 This project provides a Dockerized service with enhanced capabilities for performing complex word analysis tasks. It features API endpoints for uploading wordlists and crawling textual content from specified URLs to identify valid subsequences within a given wordlist.
 
-Word Analysis Logic
+Word Analysis Logic as originally described:
+https://www.republicworld.com/initiatives/what-9-letter-word-is-still-a-word-after-removing-one-letter-each-time/
 
 Subsequence Definition
 A "subsequence" of a word is a sequence that can be derived from the original word by deleting some or no characters without altering the order of the remaining characters. For instance, "win" is a subsequence of "window", whereas "wdw" is not.
